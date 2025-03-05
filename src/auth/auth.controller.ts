@@ -1,29 +1,43 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiProperty } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 
+class RegisterDto {
+  @ApiProperty({ example: 'john_doe', description: 'User login' })
+  username: string;
+  @ApiProperty({ example: 'StrongPass123!', description: 'User password' })
+  password: string;
+}
+
+class LoginDto {
+  @ApiProperty({ example: 'john_doe', description: 'User login' })
+  username: string;
+  @ApiProperty({ example: 'StrongPass123!', description: 'User password' })
+  password: string;
+}
+
+@ApiTags('Auth') // Группировка в Swagger
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @ApiOperation({ summary: 'User Registration' })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({ status: 201, description: 'User successfully registered' })
   @Post('register')
-  async register(@Body() body: { username: string; password: string }) {
-    const hashedPassword = await this.authService.hashPassword(body.password);
-    return { username: body.username };
+  async register(@Body() body: RegisterDto) {
+    return this.authService.register(body.username, body.password);
   }
 
+  @ApiOperation({ summary: 'User Login' })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({ status: 200, description: 'JWT Token returned' })
   @Post('login')
-  async login(@Body() body: { username: string; password: string }) {
-    // В реальном приложении здесь нужно искать пользователя в БД
-    const fakeUser = { userId: 1, username: body.username, password: '$2b$10$T6RADN7Xv8v0tu4Uvakqk.8bkbmE4TlkbtqxWOrIfJPFeVG5igrRW' };
-
-    const isPasswordValid = await this.authService.comparePasswords(body.password, fakeUser.password);
-    if (!isPasswordValid) {
-      return { message: 'Invalid credentials' };
+  async login(@Body() body: LoginDto) {
+    const user = await this.authService.validateUser(body.username, body.password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
-
-    const token = await this.authService.generateToken({ userId: fakeUser.userId, username: fakeUser.username });
-    return { access_token: token };
+    return { access_token: await this.authService.generateToken(user) };
   }
-
-
 }
