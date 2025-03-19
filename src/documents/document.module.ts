@@ -3,11 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';  // Для подключени
 import { DocumentController } from './document.controller';
 import { DocumentService } from './document.service';
 import { Document } from './document.entity';  // Импортируем сущность документа
-import { User } from '../auth/user.entity';  // Импортируем сущность пользователя, если нужно для связи
+import { User } from '../auth/user.entity';
+import { Approval } from "../approval/approvel.entity";  // Импортируем сущность пользователя, если нужно для связи
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Document, User]),  // Регистрируем сущности для работы с TypeORM
+    TypeOrmModule.forFeature([Document, User, Approval]),  // Регистрируем сущности для работы с TypeORM
   ],
   controllers: [DocumentController],  // Регистрируем контроллер
   providers: [DocumentService],  // Регистрируем сервис

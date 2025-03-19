@@ -4,11 +4,17 @@ import { DocumentService } from './document.service';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiResponse, ApiBody, ApiProperty } from '@nestjs/swagger';
 import { Document } from './document.entity';
 import { User } from '../auth/user.entity';
+import { Approval, ApprovalDecision } from "../approval/approvel.entity";
 
 
 class DocumentCreateDto {
   @ApiProperty({ example: 'New Document', description: 'title of the future document' })
   title: string;
+}
+
+class ApproveDto {
+  @ApiProperty({ example: ApprovalDecision.APPROVED, description: 'decision of request' })
+  decision: ApprovalDecision;
 }
 
 @ApiTags('Documents')
@@ -25,8 +31,6 @@ export class DocumentController {
   @Post('create')
   @UseGuards(AuthGuard('jwt'))
   async createDocument(@Request() req, @Body() body: DocumentCreateDto) {
-    const user = req.user;  // Получаем авторизованного пользователя
-    console.log("GET AUTHB USER: ", req.user.userId)
     return this.documentService.createDocument(body.title, req.user.userId);
   }
 
@@ -59,25 +63,24 @@ export class DocumentController {
     return { message: 'Document deleted successfully' };
   }
 
-  // Эндпоинт для отправки документа на утверждение
-  @ApiOperation({ summary: 'Send document for approval' })
-  @ApiResponse({ status: 200, description: 'Document sent for approval', type: Document })
-  @ApiResponse({ status: 404, description: 'Document not found' })
-  @Post(':id/approve')
+  // Эндпоинт для отправки документа на подпись
+  @ApiOperation({ summary: 'Send document for signature' })
+  @ApiResponse({ status: 201, description: 'Document sent for signature', type: Approval })
+  @ApiResponse({ status: 404, description: 'Document or approver not found' })
+  @Post(':documentId/send-for-signature/:approverId')
   @UseGuards(AuthGuard('jwt'))
-  async sendForApproval(@Param('id') id: number) {
-    return this.documentService.sendForApproval(id);
+  async sendForSignature(@Request() req, @Param('documentId') documentId: number, @Param('approverId') approverId: number) {
+    return this.documentService.sendForSignature(documentId, approverId, req.user.userId);
   }
 
-  // Эндпоинт для подписания документа
-  @ApiOperation({ summary: 'Sign document' })
-  @ApiResponse({ status: 200, description: 'Document signed successfully', type: Document })
-  @ApiResponse({ status: 404, description: 'Document not found' })
-  @ApiResponse({ status: 400, description: 'Document cannot be signed' })
-  @Post(':id/sign')
+  // Эндпоинт для обработки решения о подписании
+  @ApiOperation({ summary: 'Handle approval decision' })
+  @ApiResponse({ status: 200, description: 'Approval decision processed', type: Approval })
+  @ApiResponse({ status: 404, description: 'Approval not found' })
+  @ApiBody({type: ApproveDto})
+  @Post('approval/:approvalId/decision')
   @UseGuards(AuthGuard('jwt'))
-  async signDocument(@Request() req, @Param('id') id: number) {
-    const user: User = req.user;
-    return this.documentService.signDocument(id, user);
+  async handleApprovalDecision(@Param('approvalId') approvalId: number, @Body() body: ApproveDto) {
+    return this.documentService.handleApprovalDecision(approvalId, body.decision);
   }
 }

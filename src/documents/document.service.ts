@@ -3,12 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Document, DocumentStatus } from './document.entity';
 import { User } from '../auth/user.entity';
+import { Approval, ApprovalDecision } from "../approval/approvel.entity";
 
 @Injectable()
 export class DocumentService {
   constructor(
     @InjectRepository(Document) private documentRepository: Repository<Document>,
     @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(Approval) private approvalRepository: Repository<Approval>,
+
   ) {}
 
   // Метод для создания документа
@@ -77,20 +80,65 @@ export class DocumentService {
   }
 
   // Метод для отправки документа на утверждение
-  async sendForApproval(id: number): Promise<Document> {
-    const document = await this.documentRepository.findOne({where: {id}});
+  async sendForSignature(documentId: number, approverId: number, requesterId: number): Promise<Approval> {
+    const document = await this.documentRepository.findOne({ where: { id: documentId } });
     if (!document) {
       throw new NotFoundException('Document not found');
     }
-    return document.send_for_approval();
+
+    if  (requesterId === approverId) {
+      throw new Error('The same approver and requester ids');
+    }
+
+
+    const approver = await this.userRepository.findOne({ where: { id: approverId } });
+    if (!approver) {
+      throw new NotFoundException('Approver not found');
+    }
+
+    const requester = await this.userRepository.findOne({ where: { id: requesterId } });
+    if (!requester) {
+      throw new NotFoundException('Requester not found');
+    }
+
+
+    // Создаем запись о запросе на подпись
+    const approval = this.approvalRepository.create({
+      document,
+      approver,
+      requester,
+      decision: ApprovalDecision.PENDING,
+    });
+    console.log("change status and create approval")
+    let changedDoc = document.send_for_approval()
+    await this.documentRepository.update(document.id, changedDoc)
+    await this.approvalRepository.save(approval);
+
+    return approval;
   }
 
-  // Метод для подписания документа
-  async signDocument(id: number, user: User): Promise<Document> {
-    const document = await this.documentRepository.findOne({where: {id}});
-    if (!document) {
-      throw new NotFoundException('Document not found');
+  // Метод для обработки решения (подписать или отклонить)
+  async handleApprovalDecision(approvalId: number, decision: ApprovalDecision): Promise<Approval> {
+    const approval = await this.approvalRepository.findOne({ where: { id: approvalId }, relations: ['document', 'approver'] });
+    if (!approval) {
+      throw new NotFoundException('Approval not found');
     }
-    return document.sign_document(user);
+
+    // Обработка решения
+    if (decision === ApprovalDecision.APPROVED) {
+      await approval.approve();
+      let document = await  this.documentRepository.findOne({where: {id: approval.document.id}})
+      if (!document) {
+        throw new NotFoundException('Document not found');
+      }
+      let changedDoc = document.sign_document(approval.approver); // Переход к подписанию документа// Если документ утвержден, подписываем его
+      await this.documentRepository.update(document.id, changedDoc)
+
+    } else if (decision === ApprovalDecision.REJECTED) {
+      await approval.reject();  // Если отклонено
+    }
+
+    await this.approvalRepository.save(approval);  // Сохраняем изменения в решении
+    return approval;
   }
 }

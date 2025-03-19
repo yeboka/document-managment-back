@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { Approval } from "../approval/approvel.entity";
 
 export enum DocumentStatus {
   CREATED = 'created',
@@ -37,17 +38,20 @@ export class Document {
   @ApiProperty({ description: 'User who updated or signed the document', type: () => User, nullable: true })
   updated_by: User;
 
-  // Методы
+  @OneToMany(() => Approval, (approval) => approval.document)
+  approvals: Approval[];
 
-  async send_for_approval() {
+  send_for_approval() {
     if (this.status === DocumentStatus.CREATED) {
+      console.log("SET NEW STATUS", DocumentStatus.PENDING_SIGNATURE)
       this.status = DocumentStatus.PENDING_SIGNATURE;
       return this;
     }
     throw new Error('Document cannot be sent for approval');
   }
 
-  async sign_document(user: User) {
+  sign_document(user: User) {
+    console.log("SIGN USER: ", user)
     if (this.status === DocumentStatus.PENDING_SIGNATURE) {
       this.status = DocumentStatus.SIGNED;
       this.updated_by = user;
