@@ -68,4 +68,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
+
+  async verifyToken(token: string): Promise<User> {
+    try {
+      console.log("TOKEN", token)
+      const decoded = this.jwtService.verify(token); // Verify the token
+      const user = await this.userRepository.findOne({ where: { id: decoded.userId } });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      return user;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
 }

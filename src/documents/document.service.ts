@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Document, DocumentStatus } from './document.entity';
 import { User } from '../auth/user.entity';
 import { Approval, ApprovalDecision } from "../approval/approvel.entity";
+import { S3Service } from '../common/aws/s3.service';
 
 @Injectable()
 export class DocumentService {
@@ -11,32 +12,38 @@ export class DocumentService {
     @InjectRepository(Document) private documentRepository: Repository<Document>,
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(Approval) private approvalRepository: Repository<Approval>,
+    private readonly s3Service: S3Service
 
   ) {}
 
   // Метод для создания документа
   // Метод для создания документа
-  async createDocument(title: string, userId: number): Promise<Document> {
-    console.log("REPO USER: ", userId);
-
+  async createDocument(title: string, userId: number, file: Express.Multer.File): Promise<Document> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const document = this.documentRepository.create({
-      title,
-      created_by: user,
-      status: DocumentStatus.CREATED,
-    });
-
     try {
+      // Загружаем файл в S3
+      const { originalname, buffer, mimetype } = file;
+      const url = await this.s3Service.uploadFile(buffer, originalname, mimetype);
+
+      // Создаем новый документ с ссылкой на файл
+      const document = this.documentRepository.create({
+        title,
+        created_by: user,
+        status: DocumentStatus.CREATED,
+        file_url: url,  // Сохраняем ссылку на файл
+      });
+
       return await this.documentRepository.save(document);
     } catch (error) {
-      throw new Error('Error saving document');
+      throw new Error('Error uploading file to S3');
     }
   }
+
 
   async getAllDocumentsByUser(userId: number): Promise<Document[]> {
     // Проверяем, существует ли пользователь
@@ -140,5 +147,12 @@ export class DocumentService {
 
     await this.approvalRepository.save(approval);  // Сохраняем изменения в решении
     return approval;
+  }
+
+
+  async uploadDocumentFile(file: Express.Multer.File): Promise<{ url: string }> {
+    const { originalname, buffer, mimetype } = file;
+    const url = await this.s3Service.uploadFile(buffer, originalname, mimetype);
+    return { url };
   }
 }

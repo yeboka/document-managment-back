@@ -1,8 +1,10 @@
+import * as dotenv from 'dotenv';  // Add this import
+dotenv.config();  // Make sure to call dotenv.config() before creating the app
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { NestExpressApplication } from "@nestjs/platform-express";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -18,6 +20,5 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document); // URL для Swagger
 
   await app.listen(8080);
-
 }
 bootstrap();

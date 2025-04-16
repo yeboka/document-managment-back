@@ -5,12 +5,13 @@ import { DocumentService } from './document.service';
 import { Document } from './document.entity';  // Импортируем сущность документа
 import { User } from '../auth/user.entity';
 import { Approval } from "../approval/approvel.entity";  // Импортируем сущность пользователя, если нужно для связи
+import { S3Service } from '../common/aws/s3.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Document, User, Approval]),  // Регистрируем сущности для работы с TypeORM
   ],
   controllers: [DocumentController],  // Регистрируем контроллер
-  providers: [DocumentService],  // Регистрируем сервис
+  providers: [DocumentService, S3Service],  // Регистрируем сервис
 })
 export class DocumentModule {}

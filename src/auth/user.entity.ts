@@ -1,5 +1,6 @@
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Company } from '../company/company.entity';  // Lazy loading for Company
 
 export enum Role {
   ADMIN = 'admin',
@@ -10,27 +11,32 @@ export enum Role {
 
 @Entity()
 export class User {
-  @ApiProperty({ example: 1, description: 'Unique ID' })
   @PrimaryGeneratedColumn()
+  @ApiProperty({ example: 1, description: 'Unique ID' })
   id: number;
 
-  @ApiProperty({ example: '$2b$10$hashed_password...', description: 'Hashed Password' })
   @Column()
+  @ApiProperty({ example: '$2b$10$hashed_password...', description: 'Hashed Password' })
   password: string;
 
-  @ApiProperty({ example: 'John', description: 'First Name' })
   @Column()
+  @ApiProperty({ example: 'John', description: 'First Name' })
   firstName: string;
 
-  @ApiProperty({ example: 'Doe', description: 'Last Name' })
   @Column()
+  @ApiProperty({ example: 'Doe', description: 'Last Name' })
   lastName: string;
 
-  @ApiProperty({ example: 'john.doe@example.com', description: 'Email address' })
   @Column({ unique: true })
+  @ApiProperty({ example: 'john.doe@example.com', description: 'Email address' })
   email: string;
 
-  @ApiProperty({ example: Role.EMPLOYEE, description: 'Role of the user' })
   @Column({ type: 'enum', enum: Role, default: Role.EMPLOYEE })
+  @ApiProperty({ example: Role.EMPLOYEE, description: 'Role of the user' })
   role: Role;
+
+  // One user can belong to one company (ManyToOne)
+  @ManyToOne(() => Company, (company) => company.users)
+  @ApiProperty({ type: () => Company, description: 'Company the user belongs to' })
+  company: Company;
 }

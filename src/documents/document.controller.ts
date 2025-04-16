@@ -1,15 +1,34 @@
-import { Controller, Post, Body, UseGuards, Request, Param, Delete, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Request,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DocumentService } from './document.service';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiResponse, ApiBody, ApiProperty } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Document } from './document.entity';
-import { User } from '../auth/user.entity';
 import { Approval, ApprovalDecision } from "../approval/approvel.entity";
+import { FileInterceptor } from "@nestjs/platform-express";
 
 
 class DocumentCreateDto {
   @ApiProperty({ example: 'New Document', description: 'title of the future document' })
   title: string;
+
+  @ApiProperty({
+    description: 'File associated with the document',
+    type: 'string',
+    format: 'binary',
+    required: true,
+  })
+  file: Express.Multer.File;
 }
 
 class ApproveDto {
@@ -24,14 +43,19 @@ export class DocumentController {
   constructor(private readonly documentService: DocumentService) {}
 
   // Эндпоинт для создания документа
-  @ApiOperation({ summary: 'Create a new document' })
-  @ApiBody({type: DocumentCreateDto})
+  @ApiOperation({ summary: 'Create a new document with file' })
+  @ApiBody({
+    description: 'Document data with file to upload',
+    type: DocumentCreateDto,
+  })
+  @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Document successfully created', type: Document })
   @ApiResponse({ status: 400, description: 'Invalid data provided' })
   @Post('create')
   @UseGuards(AuthGuard('jwt'))
-  async createDocument(@Request() req, @Body() body: DocumentCreateDto) {
-    return this.documentService.createDocument(body.title, req.user.userId);
+  @UseInterceptors(FileInterceptor('file'))
+  async createDocument(@Request() req, @Body() body: DocumentCreateDto, @UploadedFile() file: Express.Multer.File) {
+    return this.documentService.createDocument(body.title, req.user.userId, file);
   }
 
   @ApiOperation({ summary: 'Get all documents of a user' })
@@ -82,5 +106,40 @@ export class DocumentController {
   @UseGuards(AuthGuard('jwt'))
   async handleApprovalDecision(@Param('approvalId') approvalId: number, @Body() body: ApproveDto) {
     return this.documentService.handleApprovalDecision(approvalId, body.decision);
+  }
+
+  @ApiOperation({ summary: 'Upload a document file to S3' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'File to upload',
+    schema: {
+      type: "object",
+      properties: {
+        comment: { type: 'string' },
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The file has been successfully uploaded.',
+    schema: {
+      example: {
+        url: 'https://s3.amazonaws.com/your-bucket-name/some-file-name',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file type or missing file',
+  })
+  @Post('upload')
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Request() req) {
+    return this.documentService.uploadDocumentFile(file);
   }
 }

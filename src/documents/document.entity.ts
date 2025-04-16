@@ -28,6 +28,9 @@ export class Document {
   @Column({ type: 'enum', enum: DocumentStatus, default: DocumentStatus.CREATED })
   status: DocumentStatus;
 
+  @Column({ nullable: true })
+  file_url: string;
+
   @ManyToOne(() => User, { nullable: false })
   @JoinColumn({ name: 'created_by' })
   @ApiProperty({ description: 'User who created the document', type: () => User })
