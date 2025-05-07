@@ -94,7 +94,7 @@ export class CompanyService {
   async joinCompanyWithCode(joinCode: string, user: User): Promise<Company> {
     const company = await this.companyRepository.findOne({ where: { joinCode } });
     console.log(company)
-    if (!company) { v
+    if (!company) {
       throw new Error('Company not found');
     }
 
