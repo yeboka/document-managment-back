@@ -6,11 +6,12 @@ import { CompanyService } from './company.service';
 import { CompanyController } from './company.controller';
 import { User } from "../auth/user.entity";
 import { AuthModule } from '../auth/auth.module';
+import { Invitation } from './invitation.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Company, User]),
-    AuthModule // Ensure AuthModule is imported
+    TypeOrmModule.forFeature([Company, User, Invitation]),
+    AuthModule
   ],
   providers: [CompanyService],
   controllers: [CompanyController],

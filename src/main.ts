@@ -8,7 +8,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-
+  app.enableCors({
+    origin: '*',  // Разрешает запросы с любого домена, можно настроить на конкретный домен
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Разрешаем методы
+    allowedHeaders: ['Content-Type', 'Authorization'], // Разрешаем определенные заголовки
+  });
   const config = new DocumentBuilder()
     .setTitle('Document Management API')
     .setDescription('API for managing documents and authentication')

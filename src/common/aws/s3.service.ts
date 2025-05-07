@@ -26,4 +26,14 @@ export class S3Service {
 
     return result.Location; // public URL
   }
+
+  async getFileBuffer(fileUrl: string): Promise<Buffer> {
+    const params = {
+      Bucket: process.env.AWS_S3_BUCKET!,  // Название вашего S3 бакета
+      Key: fileUrl.split('/').pop() || '', // Получаем имя файла из URL
+    };
+
+    const file = await this.s3.getObject(params).promise();
+    return file.Body as Buffer; // Возвращаем буфер файла
+  }
 }

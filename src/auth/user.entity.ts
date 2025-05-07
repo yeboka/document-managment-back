@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Company } from '../company/company.entity';  // Lazy loading for Company
+import { Exclude } from 'class-transformer';
 
 export enum Role {
   ADMIN = 'admin',
@@ -38,5 +39,6 @@ export class User {
   // One user can belong to one company (ManyToOne)
   @ManyToOne(() => Company, (company) => company.users)
   @ApiProperty({ type: () => Company, description: 'Company the user belongs to' })
-  company: Company;
+  company: Company; // This is where the relationship is established
+
 }

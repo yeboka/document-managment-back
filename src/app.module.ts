@@ -5,12 +5,16 @@ import { AuthModule } from './auth/auth.module';
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DocumentModule } from "./documents/document.module";
 import { CompanyModule } from "./company/company.module";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
   imports: [
     AuthModule,
     DocumentModule,
     CompanyModule,
+    ConfigModule.forRoot({
+      isGlobal: true, // makes the configuration available globally
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',

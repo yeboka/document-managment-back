@@ -31,6 +31,9 @@ export class Document {
   @Column({ nullable: true })
   file_url: string;
 
+  @Column({ nullable: true })
+  signature: string;  // Добавлено поле для хранения подписи
+
   @ManyToOne(() => User, { nullable: false })
   @JoinColumn({ name: 'created_by' })
   @ApiProperty({ description: 'User who created the document', type: () => User })
@@ -53,11 +56,11 @@ export class Document {
     throw new Error('Document cannot be sent for approval');
   }
 
-  sign_document(user: User) {
-    console.log("SIGN USER: ", user)
+  sign_document(user: User, signature: string) {
     if (this.status === DocumentStatus.PENDING_SIGNATURE) {
       this.status = DocumentStatus.SIGNED;
       this.updated_by = user;
+      this.signature = signature;  // Сохраняем подпись
       return this;
     }
     throw new Error('Document cannot be signed');

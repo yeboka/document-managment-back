@@ -13,9 +13,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { DocumentService } from './document.service';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Document } from './document.entity';
+import { Document, DocumentStatus } from './document.entity';
 import { Approval, ApprovalDecision } from "../approval/approvel.entity";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { SignatureService } from "../common/signature/signature.service";
 
 
 class DocumentCreateDto {
@@ -40,7 +41,10 @@ class ApproveDto {
 @ApiBearerAuth()
 @Controller('documents')
 export class DocumentController {
-  constructor(private readonly documentService: DocumentService) {}
+  constructor(
+    private readonly documentService: DocumentService,
+    private readonly signatureService: SignatureService,
+  ) {}
 
   // Эндпоинт для создания документа
   @ApiOperation({ summary: 'Create a new document with file' })
@@ -58,6 +62,15 @@ export class DocumentController {
     return this.documentService.createDocument(body.title, req.user.userId, file);
   }
 
+  @ApiOperation({ summary: 'Get all documents of a current user' })
+  @ApiResponse({ status: 200, description: 'List of documents', type: [Document] })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @Get('user')
+  @UseGuards(AuthGuard('jwt'))
+  async getAllDocumentsOfCurrentUser(@Request() req: any) {
+    return this.documentService.getAllDocumentsByUser(req.user.userId);
+  }
+
   @ApiOperation({ summary: 'Get all documents of a user' })
   @ApiResponse({ status: 200, description: 'List of documents', type: [Document] })
   @ApiResponse({ status: 404, description: 'User not found' })
@@ -66,7 +79,6 @@ export class DocumentController {
   async getAllDocuments(@Param('userId') userId: number) {
     return this.documentService.getAllDocumentsByUser(userId);
   }
-
   // Эндпоинт для получения одного документа пользователя
   @ApiOperation({ summary: 'Get a specific document of a user' })
   @ApiResponse({ status: 200, description: 'Document found', type: Document })
@@ -141,5 +153,73 @@ export class DocumentController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(@UploadedFile() file: Express.Multer.File, @Request() req) {
     return this.documentService.uploadDocumentFile(file);
+  }
+
+  // Эндпоинт для подписания документа
+  @Post('sign/:documentId')
+  async signDocument(@Request() req, @Param('documentId') documentId: number) {
+    const document = await this.documentService.getDocumentById(documentId);  // Получаем документ
+    if (document.status !== DocumentStatus.PENDING_SIGNATURE) {
+      throw new Error('Document is not in a signable state');
+    }
+
+    // Создаем подпись для документа
+    const signature = await this.documentService.signDocument(document);
+
+    // Обновляем документ с подписью
+    document.status = DocumentStatus.SIGNED;  // Обновляем статус документа
+    await this.documentService.updateDocument(document, signature);  // Сохраняем подпись в документе
+
+    return { message: 'Document signed successfully', signature };
+  }
+
+  // Эндпоинт для проверки подписи документа
+  @Post('verify/:documentId')
+  async verifySignature(
+    @Request() req,
+    @Param('documentId') documentId: number,
+    @Body() body: { signature: string },
+  ) {
+    const document = await this.documentService.getDocumentById(documentId);  // Получаем документ
+    const fileBuffer = await this.documentService.getFileBuffer(document);  // Получаем файл
+
+    // Проверяем подпись документа
+    const isValid = this.signatureService.verifySignature(fileBuffer, body.signature);
+    if (isValid) {
+      return { message: 'Signature is valid' };
+    } else {
+      throw new Error('Invalid signature');
+    }
+  }
+
+  @Post('analyze')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Upload the document file along with a prompt for analysis',
+    type: 'multipart/form-data',
+    required: true,
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+        prompt: {
+          type: 'string',
+          example: 'Analyze this document and provide advantages and disadvantages.',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async analyzeDocument(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body('prompt') prompt: string,
+  ) {
+    const analysis = await this.documentService.processDocument(file, prompt);
+    return {
+      analysis,
+    };
   }
 }

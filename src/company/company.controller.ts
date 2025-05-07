@@ -1,141 +1,153 @@
-import { Controller, Post, Body, Get, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get, UseGuards } from '@nestjs/common';
 import { CompanyService } from './company.service';
-import { ApiOperation, ApiResponse, ApiParam, ApiTags, ApiBody, ApiProperty, ApiBearerAuth } from '@nestjs/swagger';
-import { Company } from './company.entity';
-import { Role, User } from '../auth/user.entity';
-import { AuthGuard } from "@nestjs/passport";
-import { JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { CurrentUser } from "../auth/current-user.decorator";
+import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { InvitationStatus } from './invitation.entity';
+import { User } from '../auth/user.entity';
+import { CompanyCreateDto } from "./dto/companyCreateDto";
 
-class CompanyCreateDto {
-  @ApiProperty({ example: 'Name of Company', description: 'title of the future company' })
-  name: string;
-  @ApiProperty({ example: 'Company for document management', description: 'description of the future company' })
-  description: string;
-}
-
-@ApiTags('Company') // Группировка эндпоинтов под тегом "Company" в Swagger
+@ApiTags('Company')
 @ApiBearerAuth()
 @Controller('company')
 export class CompanyController {
   constructor(private companyService: CompanyService) {}
 
-  @Post()
+  @Post('create')
   @ApiOperation({
-    summary: 'Создание новой компании',
-    description: 'Этот эндпоинт позволяет создать новую компанию, указав её название и описание.'
+    summary: 'Create a new company',
+    description: 'This endpoint allows authenticated users to create a new company by providing its name and description.',
   })
   @ApiBody({
-    type: CompanyCreateDto // Validating the input with CompanyCreateDto
+    description: 'Company details including name and description to create a new company.',
+    type: CompanyCreateDto, // This will link to your DTO
   })
   @ApiResponse({
     status: 201,
-    description: 'Компания успешно создана.',
-    type: Company,
+    description: 'Company created successfully.',
   })
-  @UseGuards(JwtAuthGuard) // Ensure the route is protected with JWT authentication
+  @UseGuards(JwtAuthGuard) // Ensuring only authenticated users can create a company
   async createCompany(
     @Body() body: CompanyCreateDto, // Using DTO for validation
-    @Request() req // Get the currently authenticated user
+    @CurrentUser() user: User,
   ) {
-    const currentUser = req.user; // Extract the user from the request object (added by JwtAuthGuard)
-    return this.companyService.createCompany(body.name, body.description, currentUser); // Pass the user as the creator
+    const company = await this.companyService.createCompany(body.name, body.description, user);
+    await this.companyService.addUserToCompany(company.id, user.id)
+    return company;
   }
 
-  @Post(':companyId/user/:userId')
+  @Post(':companyId/leave')
   @ApiOperation({
-    summary: 'Добавить нового сотрудника в компанию',
-    description: 'Только менеджеры и супер-менеджеры могут добавлять сотрудников.',
+    summary: 'User leave company',
+    description: 'This endpoint allows a user to leave a company using the company ID and user ID.',
   })
   @ApiParam({
     name: 'companyId',
-    description: 'ID компании, для которой нужно добавить сотрудника.',
-    type: Number,
-  })
-  @ApiParam({
-    name: 'userId',
-    description: 'ID пользователя, которого нужно добавить.',
+    description: 'ID of the company',
     type: Number,
   })
   @ApiResponse({
     status: 200,
-    description: 'Сотрудник успешно добавлен в компанию.',
-    type: Company,
+    description: 'User successfully left the company.',
   })
-  @UseGuards(JwtAuthGuard) // Добавляем защиту для только авторизованных пользователей
-  async addUserToCompany(
+  @UseGuards(JwtAuthGuard) // Ensuring that only authenticated users can access this endpoint
+  async leaveCompany(
     @Param('companyId') companyId: number,
-    @Param('userId') userId: number,
-    @CurrentUser() currentUser: User, // Встраиваем текущего пользователя из JWT токена
+    @CurrentUser('userId') user: User,
   ) {
-    return this.companyService.addUserToCompany(companyId, userId, currentUser);
+    return this.companyService.leaveCompany(companyId, user.id);
   }
 
-  @Post(':companyId/user/:userId/role')
+  @Post(':joinCode/join')
   @ApiOperation({
-    summary: 'Назначить роль пользователю',
-    description: 'Только супер-менеджер, который создал компанию, может назначать роли пользователям.',
+    summary: 'Join company using 8-character code',
+    description: 'This endpoint allows a user to join a company using an 8-character code.',
+  })
+  @ApiParam({
+    name: 'joinCode',
+    description: 'The 8-character code to join the company',
+    type: String,
+    example: 'abc12345', // Example of a join code
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User successfully joined the company.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Company not found for the given join code.',
+  })
+  @UseGuards(JwtAuthGuard) // Ensuring only authenticated users can join a company
+  async joinCompany(
+    @Param('joinCode') joinCode: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.companyService.joinCompanyWithCode(joinCode.toLowerCase(), user);
+  }
+
+  @Post(':companyId/invite/:userId')
+  @ApiOperation({
+    summary: 'Send invitation to a user to join the company',
   })
   @ApiParam({
     name: 'companyId',
-    description: 'ID компании.',
+    description: 'The ID of the company',
     type: Number,
   })
   @ApiParam({
     name: 'userId',
-    description: 'ID пользователя, которому нужно назначить роль.',
+    description: 'The ID of the user to invite',
     type: Number,
   })
   @ApiResponse({
     status: 200,
-    description: 'Роль успешно назначена.',
-    type: User,
+    description: 'Invitation sent successfully.',
   })
-  @UseGuards(JwtAuthGuard) // Защита эндпоинта с помощью JWT
-  async assignRole(
+  @UseGuards(JwtAuthGuard)
+  async sendInvitation(
     @Param('companyId') companyId: number,
     @Param('userId') userId: number,
-    @Body() body: { role: Role },
     @CurrentUser() currentUser: User,
   ) {
-    return this.companyService.assignRoleToUser(companyId, userId, body.role, currentUser);
+    return this.companyService.sendInvitation(companyId, userId, currentUser);
   }
 
-
-  @Get(':companyId/users')
-  @ApiBody({
-    description: 'Этот эндпоинт позволяет получить список всех пользователей, связанных с компанией по её ID.'
-  })
-  @ApiParam({
-    name: 'companyId',
-    description: 'ID компании, для которой нужно получить список сотрудников.',
-    type: Number,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Список сотрудников компании.',
-    type: [User],
-  })
-  async getUsersOfCompany(@Param('companyId') companyId: number) {
-    return this.companyService.getUsersOfCompany(companyId);
-  }
-
-  @Get(':companyId')
+  @Post('invitation/:invitationId/respond')
   @ApiOperation({
-    summary: 'Получить информацию о компании',
-    description: 'Этот эндпоинт позволяет получить информацию о компании по её ID.',
+    summary: 'Respond to an invitation (accept or reject)',
   })
   @ApiParam({
-    name: 'companyId',
-    description: 'ID компании, для которой нужно получить информацию.',
+    name: 'invitationId',
+    description: 'The ID of the invitation',
     type: Number,
+  })
+  @ApiBody({
+    description: 'Invitation response (accept or reject)',
+    type: String,
   })
   @ApiResponse({
     status: 200,
-    description: 'Информация о компании.',
-    type: Company,
+    description: 'Invitation status updated.',
   })
-  async getCompany(@Param('companyId') companyId: number) {
-    return this.companyService.getCompanyById(companyId);
+  @UseGuards(JwtAuthGuard)
+  async respondToInvitation(
+    @Param('invitationId') invitationId: number,
+    @Body() body: { status: InvitationStatus },
+    @CurrentUser() user: User,
+  ) {
+    return this.companyService.respondToInvitation(invitationId, body.status, user);
+  }
+
+  @Get('profile/invitations')
+  @ApiOperation({
+    summary: 'Get all invitations for the current user',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of invitations for the user.',
+  })
+  @UseGuards(JwtAuthGuard)
+  async getUserInvitations(@CurrentUser() user: User) {
+    return this.companyService.getUserInvitations(user);
   }
 }

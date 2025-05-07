@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from './user.entity';
@@ -10,20 +10,24 @@ import { Repository } from 'typeorm';
 @Controller('profile')
 export class ProfileController {
   constructor(
-    @InjectRepository(User) private userRepository: Repository<User>,  // Инжектируем репозиторий User
+    @InjectRepository(User) private userRepository: Repository<User>,
   ) {}
 
-  @ApiOperation({ summary: 'Get user profile' })
+  @ApiOperation({ summary: 'Get user profile with company info' })
   @UseGuards(AuthGuard('jwt'))
   @Get()
   async getProfile(@Request() req) {
     const userId = req.user.userId;
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new Error('User not found');
-    }
-    const { password, ...userProfile } = user;
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['company'],
+    });
 
-    return userProfile;  // Возвращаем только нужные данные без пароля
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { password, ...userProfile } = user;
+    return userProfile;
   }
 }
