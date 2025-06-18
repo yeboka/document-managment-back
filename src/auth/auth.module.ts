@@ -7,6 +7,7 @@ import { ProfileController } from './profile.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { Company } from '../company/company.entity';
+import { EmailModule } from '../common/email/email.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Company } from '../company/company.entity';
       secret: 'SECRET_KEY', // Make sure to replace this with a more secure secret key
       signOptions: { expiresIn: '1h' }, // Access token expiration
     }),
+    EmailModule, // Add EmailModule for email notifications
   ],
   controllers: [AuthController, ProfileController],
   providers: [AuthService, JwtStrategy],

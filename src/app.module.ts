@@ -6,16 +6,20 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { DocumentModule } from './documents/document.module';
 import { CompanyModule } from './company/company.module';
+import { RequestModule } from "./request/request.module";
+import { EmailModule } from './common/email/email.module';
 
 @Module({
   imports: [
-    AuthModule,
-    DocumentModule,
-    CompanyModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
+    AuthModule,
+    DocumentModule,
+    CompanyModule,
+    RequestModule,
+    EmailModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -30,6 +34,7 @@ import { CompanyModule } from './company/company.module';
 
         // Получаем хост из .env. Если он может быть undefined и это критично, добавьте проверку.
         const dbHost = configService.get<string>('DB_HOST');
+        console.log('dbHost', dbHost);
         if (!dbHost) {
           throw new Error('DB_HOST is not defined in .env file');
         }
@@ -60,7 +65,7 @@ import { CompanyModule } from './company/company.module';
           password: dbPassword,
           database: dbName,
           autoLoadEntities: true,
-          synchronize: configService.get<string>('NODE_ENV') === 'development',
+          synchronize: true,
         };
       },
       inject: [ConfigService],

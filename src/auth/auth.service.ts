@@ -1,15 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
+import { EmailService } from '../common/email/email.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async register(
@@ -18,6 +20,15 @@ export class AuthService {
     firstName: string,
     lastName: string,
   ): Promise<User> {
+    const existing = await this.userRepository.findOne({ where: { email } });
+
+    if (existing) {
+      throw new HttpException(
+        { message: 'Пользователь с таким email уже существует' },
+        400,
+      );
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = this.userRepository.create({
       email,
@@ -25,7 +36,18 @@ export class AuthService {
       firstName,
       lastName,
     });
-    return this.userRepository.save(newUser);
+
+    const savedUser = await this.userRepository.save(newUser);
+
+    // Send welcome email
+    try {
+      await this.emailService.sendWelcomeEmail(savedUser);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      // Don't throw error to avoid breaking the registration process
+    }
+
+    return savedUser;
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {

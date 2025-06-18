@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>New Document Request</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .footer {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            font-size: 12px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>New Document Request</h2>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{receiverName}},</p>
+        
+        <p>You have received a new document request from <strong>{{senderName}}</strong>.</p>
+        
+        <h3>Document Details:</h3>
+        <ul>
+            <li><strong>Document Name:</strong> {{documentName}}</li>
+            <li><strong>Document Status:</strong> {{documentStatus}}</li>
+            <li><strong>Request Type:</strong> {{requestType}}</li>
+            <li><strong>Status:</strong> {{status}}</li>
+        </ul>
+        
+        <p>Please review this document and take appropriate action.</p>
+        
+        <a href="#" class="button">View Document</a>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message from {{companyName}} Document Management System.</p>
+        <p>If you have any questions, please contact your system administrator.</p>
+    </div>
+</body>
+</html> 
