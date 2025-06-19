@@ -42,9 +42,9 @@ export class AuthService {
     // Send welcome email
     try {
       await this.emailService.sendWelcomeEmail(savedUser);
-    } catch (error) {
-      console.error('Failed to send welcome email:', error);
-      // Don't throw error to avoid breaking the registration process
+    } catch (e) {
+      console.error('Email error:', e);
+      // Не бросаем ошибку дальше!
     }
 
     return savedUser;
