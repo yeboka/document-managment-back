@@ -31,17 +31,109 @@ export class EmailService {
         return; // Skip sending if SMTP not configured
       }
 
-      await this.mailerService.sendMail({
-        to: data.to,
-        subject: data.subject,
-        template: data.template,
-        context: data.context,
-      });
-      
-      console.log('✅ Email sent successfully to:', data.to);
+      try {
+        await this.mailerService.sendMail({
+          to: data.to,
+          subject: data.subject,
+          template: data.template,
+          context: data.context,
+        });
+        
+        console.log('✅ Email sent successfully to:', data.to);
+      } catch (templateError) {
+        console.warn('⚠️ Template email failed, trying simple email:', templateError.message);
+        
+        // Fallback: Send simple HTML email without template
+        await this.sendSimpleEmail(data);
+      }
     } catch (error) {
       console.error('Failed to send email:', error);
       throw new Error(`Failed to send email: ${error.message}`);
+    }
+  }
+
+  private async sendSimpleEmail(data: EmailNotificationData): Promise<void> {
+    const htmlContent = this.generateSimpleHtml(data);
+    
+    await this.mailerService.sendMail({
+      to: data.to,
+      subject: data.subject,
+      html: htmlContent,
+    });
+    
+    console.log('✅ Simple email sent successfully to:', data.to);
+  }
+
+  private generateSimpleHtml(data: EmailNotificationData): string {
+    const context = data.context;
+    
+    switch (data.template) {
+      case 'welcome':
+        return `
+          <html>
+            <body>
+              <h2>Welcome to Document Management System</h2>
+              <p>Hello ${context.userName || 'User'},</p>
+              <p>Welcome to the Document Management System! We're excited to have you on board.</p>
+              <p>Your account has been created successfully.</p>
+              <p>Best regards,<br>Document Management Team</p>
+            </body>
+          </html>
+        `;
+      
+      case 'document-request':
+        return `
+          <html>
+            <body>
+              <h2>New Document Request</h2>
+              <p>Hello ${context.receiverName || 'User'},</p>
+              <p>You have received a new document request from ${context.senderName || 'Sender'}.</p>
+              <p><strong>Document:</strong> ${context.documentName || 'Document'}</p>
+              <p>Please review this document and take appropriate action.</p>
+              <p>Best regards,<br>Document Management Team</p>
+            </body>
+          </html>
+        `;
+      
+      case 'document-approved':
+        return `
+          <html>
+            <body>
+              <h2>Document Approved</h2>
+              <p>Hello ${context.userName || 'User'},</p>
+              <p>Great news! Your document has been approved by ${context.approverName || 'Approver'}.</p>
+              <p><strong>Document:</strong> ${context.documentName || 'Document'}</p>
+              <p>Your document is now available for use.</p>
+              <p>Best regards,<br>Document Management Team</p>
+            </body>
+          </html>
+        `;
+      
+      case 'document-rejected':
+        return `
+          <html>
+            <body>
+              <h2>Document Rejected</h2>
+              <p>Hello ${context.userName || 'User'},</p>
+              <p>Your document has been rejected by ${context.rejectorName || 'Rejector'}.</p>
+              <p><strong>Document:</strong> ${context.documentName || 'Document'}</p>
+              <p><strong>Reason:</strong> ${context.reason || 'No reason provided'}</p>
+              <p>Please review the feedback and make necessary changes.</p>
+              <p>Best regards,<br>Document Management Team</p>
+            </body>
+          </html>
+        `;
+      
+      default:
+        return `
+          <html>
+            <body>
+              <h2>${data.subject}</h2>
+              <p>This is an automated message from Document Management System.</p>
+              <p>Best regards,<br>Document Management Team</p>
+            </body>
+          </html>
+        `;
     }
   }
 

@@ -41,6 +41,13 @@ import { EmailService } from './email.service';
         const port = parseInt(smtpPort || '587', 10);
         const isSecure = port === 465;
 
+        // Определяем правильный путь к шаблонам
+        const templatePath = process.env.NODE_ENV === 'production' 
+          ? join(__dirname, 'templates')  // В production используем dist папку
+          : join(__dirname, 'templates'); // В development используем src папку
+
+        console.log('📁 Template path:', templatePath);
+
         return {
           transport: {
             host: smtpHost || 'smtp.gmail.com',
@@ -61,7 +68,7 @@ import { EmailService } from './email.service';
             from: `"Document Management System" <${smtpUser}>`,
           },
           template: {
-            dir: join(__dirname, 'templates'),
+            dir: templatePath,
             adapter: new HandlebarsAdapter(),
             options: {
               strict: true,
